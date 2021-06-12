@@ -126,7 +126,9 @@ function cloudinaryImageUploadMethod(file){
 
 function validateReq (data){
     const emailRegExp = /^[-!#$%&'*+\/0-9=?A-Z^_a-z{|}~](\.?[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~])*@[a-zA-Z0-9](-*\.?[a-zA-Z0-9])*\.[a-zA-Z](-?[a-zA-Z0-9])+$/;
-    if(!emailRegExp.test(data.email)) return {message: "Email isnt correct."};
+    // if(isEmptyObject(value)) return value && Object.keys(value).length === 0 && value.constructor === Object;
+    if(Object.keys(data).length === 0) return { status: false, message: "You cannot leave the fields empty"};
+    if(!emailRegExp.test(data.email)) return { status: false, message: "Email isn't correct"};
     if(!data.email) return { status: false, message: "Email cannot be empty"};
     if(!data.firstname) return { status: false, message: "Firstname cannot be empty"};
     if(!data.surname) return { status: false,  message: "Surname cannot be empty"};
