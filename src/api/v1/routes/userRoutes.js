@@ -21,15 +21,8 @@ router.use(session({secret: "k3y!ss3cr3t", resave: false, saveUninitialized: tru
 //     res.send({message: "SUCCESS"});
 // });
 
-router.post('/register', upload.array('hkidphoto'), userController.userRegister);
+router.post('/register', upload.array('user_files'), userController.userRegister);
 router.post('/auth/signin', userController.userAuth);
-router.get('/', (req, res)=>{
-    res.send(`
-        <div>
-            <img src="https://res.cloudinary.com/labilawal/image/upload/v1623483816/r6re8vsjtrgrntisvvap.jpg" width="50">
-        </div>
-    `);
-});
 
 module.exports = router;
 
