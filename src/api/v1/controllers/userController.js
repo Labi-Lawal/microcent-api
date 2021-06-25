@@ -107,7 +107,7 @@ const extracthkid = async (req, res)=>{
     var image =  fs.readFileSync(req.session.filepath, {encoding: null});
 
     var result = await extractText(image);
-    res.send(result);
+    res.send({extractedText: result});
 }
 
 function cloudinaryImageUploadMethod(file){
@@ -162,21 +162,22 @@ function validateReq (data){
     return { status: true, message: "SUCCESS"};
 }
 
-function extractText(image){
-    console.log('********');
-
+async function extractText(image) {
     const worker = createWorker({
         langPath: path.resolve("./") + '\\lang-data', 
         logger: m => console.log(m),
     });
 
-    (async () => {
+    return extratedText =  (async () => {
         await worker.load();
         await worker.loadLanguage('eng');
         await worker.initialize('eng');
+        
         const { data: { text } } = await worker.recognize(image);
-        console.log(text);
+        return text;
+        
         await worker.terminate();
     })();
+
 }
 module.exports = { userRegister, userAuth , extracthkid};
