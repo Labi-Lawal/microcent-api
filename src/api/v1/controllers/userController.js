@@ -164,7 +164,7 @@ function validateReq (data){
 
 async function extractText(image) {
     const worker = createWorker({
-        langPath: path.resolve("./") + '\\lang-data', 
+        langPath: path.resolve("./") + '/lang-data', 
         logger: m => console.log(m),
     });
 

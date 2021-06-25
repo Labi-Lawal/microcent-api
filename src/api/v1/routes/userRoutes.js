@@ -12,10 +12,10 @@ const storage = multer.diskStorage({
 
 var filename;
 var diskStorage = multer.diskStorage({
-    destination: path.resolve("./") + '\\public\\uploads',
+    destination: path.resolve("./") + '/public/uploads',
     filename: function (req, file, cb) {
         filename = file.fieldname + '-' + Date.now() + path.extname(file.originalname);
-        req.session.filepath =  path.resolve("./") + '\\public\\uploads\\' + filename;
+        req.session.filepath =  path.resolve("./") + '/public/uploads/' + filename;
         console.log(filename);
         cb(null , filename);
     }
