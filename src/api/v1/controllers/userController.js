@@ -2,7 +2,9 @@ const { UserModel } = require('../models');
 const bcrypt = require('bcrypt');
 const { cloudinary } = require('../services');
 const { picture } = require('../services/cloudService');
-
+const fs = require('fs');
+const { createWorker } = require('tesseract.js');
+const path = require('path');
 
 const userRegister = (req, res)=>{
     //Validate user request
@@ -73,11 +75,13 @@ const userRegister = (req, res)=>{
         }
     }).catch((error)=>{
         console.log(error);
-        return res.status(500).send({message: "There was a server, not your fault, we are on it."});
+        return res.status(500).send({message: "There was a server error, not your fault, we are on it."});
     });
 }
 
 const userAuth = (req, res)=>{
+    console.log(req.body);
+    
     const { email, password } = req.body;
 
     UserModel.findOne({i_email: email}).then((foundUser)=>{
@@ -96,6 +100,14 @@ const userAuth = (req, res)=>{
         console.log(error);
         return res.status(500).send({message: "There was a server error, please try again."});
     });
+}
+
+const extracthkid = async (req, res)=>{
+    console.log(req.session.filepath);
+    var image =  fs.readFileSync(req.session.filepath, {encoding: null});
+
+    var result = await extractText(image);
+    res.send(result);
 }
 
 function cloudinaryImageUploadMethod(file){
@@ -150,4 +162,21 @@ function validateReq (data){
     return { status: true, message: "SUCCESS"};
 }
 
-module.exports = { userRegister, userAuth };
+function extractText(image){
+    console.log('********');
+
+    const worker = createWorker({
+        langPath: path.resolve("./") + '\\lang-data', 
+        logger: m => console.log(m),
+    });
+
+    (async () => {
+        await worker.load();
+        await worker.loadLanguage('eng');
+        await worker.initialize('eng');
+        const { data: { text } } = await worker.recognize(image);
+        console.log(text);
+        await worker.terminate();
+    })();
+}
+module.exports = { userRegister, userAuth , extracthkid};
