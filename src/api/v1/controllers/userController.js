@@ -5,6 +5,8 @@ const { picture } = require('../services/cloudService');
 const fs = require('fs');
 const { createWorker } = require('tesseract.js');
 const path = require('path');
+const sharp = require('sharp');
+const { options } = require('../routes/userRoutes');
 
 const userRegister = (req, res)=>{
     //Validate user request
@@ -103,11 +105,27 @@ const userAuth = (req, res)=>{
 }
 
 const extracthkid = async (req, res)=>{
-    console.log(req.session.filepath);
+
     var image =  fs.readFileSync(req.session.filepath, {encoding: null});
 
-    var result = await extractText(image);
+    await resizeImage(image, req.session.filepath);
+    var result = await extractText(req.session.filepath);
     res.send({extractedText: result});
+
+    if(fs.existsSync(req.session.filepath)){
+        fs.unlink(req.session.filepath, (err)=>{
+            if(err){
+                console.log("Cant DELETE file .......");
+                console.log(err);
+
+                fs.rmSync(req.session.filepath, {require: true, force: true});
+            } else {
+                console.log("File DELETED.......")
+            }
+        });
+    } else {
+        console.log('Cant do nothing right now');
+    }
 }
 
 function cloudinaryImageUploadMethod(file){
@@ -162,7 +180,14 @@ function validateReq (data){
     return { status: true, message: "SUCCESS"};
 }
 
+async function resizeImage(rawImage, fileLoc){
+    sharp(rawImage)
+        .resize(500, 320)
+        .toFile(fileLoc);
+}
+
 async function extractText(image) {
+
     const worker = createWorker({
         langPath: path.resolve("./") + '/lang-data', 
         logger: m => console.log(m),
