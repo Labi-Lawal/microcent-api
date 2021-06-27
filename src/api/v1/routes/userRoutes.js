@@ -33,8 +33,8 @@ router.use(session({secret: "k3y!ss3cr3t", resave: false, saveUninitialized: tru
 // });
 
 router.post('/register', upload.array('user_files'), userController.userRegister);
-router.post('/auth/signin', userController.userAuth);
-router.post('/hkidinfofromimage', hkidupload.single('hkid_image'), userController.extracthkid);
+router.post('/auth', userController.userAuth);
+router.post('/extracthkid', hkidupload.single('hkid_image'), userController.extracthkid);
 
 module.exports = router;
 
