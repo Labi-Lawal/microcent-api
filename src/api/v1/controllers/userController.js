@@ -1,4 +1,4 @@
-const { UserModel } = require('../models');
+const { UserModel, OtpModel} = require('../models');
 const bcrypt = require('bcrypt');
 const { cloudinary } = require('../services');
 const { picture } = require('../services/cloudService');
@@ -7,13 +7,13 @@ const { createWorker } = require('tesseract.js');
 const path = require('path');
 const sharp = require('sharp');
 const { options } = require('../routes/userRoutes');
+const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const vision = require('@google-cloud/vision');
 
 const userRegister = (req, res)=>{
     //Validate user request
     var result = validateReq(req.body);
-    if(!result.status) {
-        return res.status(422).send({message: result.message});
-    }
+    if(!result.status) return res.status(422).send({message: result.message});
 
     // Check if user already exists
     UserModel.findOne({i_email: req.body.email.toLowerCase()}).then(async (foundUser)=>{
@@ -81,7 +81,6 @@ const userRegister = (req, res)=>{
 
 const userAuth = (req, res)=>{
     console.log(req.body);
-    
     const { email, password } = req.body;
 
     UserModel.findOne({i_email: email}).then((foundUser)=>{
@@ -102,29 +101,105 @@ const userAuth = (req, res)=>{
     });
 }
 
+const sendOTP = async (req, res)=>{
+    // GENERATE OTP
+    var result = await generateOTP(6);
+    var messageToSend = `Kindly Use this code: ${result} to confirm your new means of authentication for the MICROCENT Mobile App`;
+
+    OtpModel.findOne({email: req.body.email}, (err, foundUser)=>{
+        if(err) res.status(500).send({message: "There was a server error, we are on it. Please try again."});
+        else {
+            if(!foundUser){
+                OtpModel.create({
+                    code: result, email: req.body.email
+                })
+                .then((result) => {
+                    twilioClient
+                        .messages
+                        .create({
+                            body: messageToSend,
+                            from: '+12813773596',
+                            to: req.body.phone
+                        })
+                        .then(message => {
+                            console.log({message: 'OTP sent', ssid: message.sid});
+                            res.send({message: 'OTP sent', ssid: message.sid})
+                        })
+                        .catch(error => {
+                            console.log({message: error});
+                            res.send({message: error})
+                        });
+                });
+            } else {
+                OtpModel.deleteOne({email: req.body.email})
+                .then(deleted => {
+                    OtpModel.create({
+                        code: result, email: req.body.email
+                    })
+                    .then((result)=> {
+                        twilioClient
+                            .messages
+                            .create({
+                                body: messageToSend,
+                                from: '+12813773596',
+                                to: req.body.phone
+                            })
+                            .then(message => {
+                                console.log({message: 'OTP sent', ssid: message.sid});
+                                res.send({message: 'OTP sent', ssid: message.sid})
+                            })
+                            .catch(error => {
+                                console.log({message: error});
+                                res.send({message: error})
+                            });
+                    });
+                })
+            }
+        }
+    });
+}
+
+const verifyOTP = async (req, res)=>{
+    console.log(req.body);
+
+    OtpModel.findOne({email: req.body.email}, (err, foundOTP)=>{
+        if(err) res.status(422).send({message: result.message});
+        else {
+            if(!foundOTP) res.status(404).send({message: 'OTP doesnt exist for user'});
+            else {
+                if(foundOTP.code != req.body.code) res.status(404).send({message: 'OTP doesnt exist for user'});
+                else res.status(200).send({message: 'OTP verified'});
+            }
+        }
+    })
+}
+
 const extracthkid = async (req, res)=>{
 
     var image =  fs.readFileSync(req.session.filepath, {encoding: null});
 
-    await resizeImage(image, req.session.filepath);
-    var result = await extractText(req.session.filepath);
-    console.log(result);
-    res.send({extractedText: result});
+    const client = new vision.ImageAnnotatorClient({
+        keyFilename:  path.resolve("./") + '/microcent-ml-googleapikey.json'
+    });
 
-    if(fs.existsSync(req.session.filepath)){
-        fs.unlink(req.session.filepath, (err)=>{
-            if(err){
-                console.log("Cant DELETE file .......");
-                console.log(err);
+    // Performs Label detection on the image file
+    client
+        .textDetection(image)
+        .then(results =>{
+            console.log(results[0].fullTextAnnotation.text);
+            res.status(200).send(results[0].fullTextAnnotation.text)
+        })
+        .catch(results => res.status(400).send("Please take picture again."));
+}
 
-                fs.rmSync(req.session.filepath, {require: true, force: true});
-            } else {
-                console.log("File DELETED.......")
-            }
-        });
-    } else {
-        console.log('Cant do nothing right now');
+async function generateOTP(otpLength){
+    var code = [];
+
+    for(var i = 0; i < otpLength; i++){
+        code.push(Math.floor(Math.random() * 10));
     }
+
+    return code.join('');
 }
 
 function cloudinaryImageUploadMethod(file){
@@ -204,4 +279,4 @@ async function extractText(image) {
 
 }
 
-module.exports = { userRegister, userAuth , extracthkid};
+module.exports = { userRegister, userAuth , sendOTP, verifyOTP, extracthkid};

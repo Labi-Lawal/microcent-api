@@ -35,6 +35,8 @@ router.use(session({secret: "k3y!ss3cr3t", resave: false, saveUninitialized: tru
 router.post('/register', upload.array('user_files'), userController.userRegister);
 router.post('/auth', userController.userAuth);
 router.post('/extracthkid', hkidupload.single('hkid_image'), userController.extracthkid);
+router.post('/sendotp', userController.sendOTP);
+router.post('/verifyOTP', userController.verifyOTP);
 
 module.exports = router;
 

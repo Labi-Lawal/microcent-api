@@ -1,4 +1,5 @@
 const UserModel = require('./UserModel');
+const OtpModel = require('./OtpModel');
 
-module.exports = { UserModel };
+module.exports = { UserModel,  OtpModel};
 
