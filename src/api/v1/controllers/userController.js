@@ -127,7 +127,8 @@ const sendOTP = async (req, res)=>{
                         })
                         .catch(error => {
                             console.log({message: error});
-                            res.send({message: error})
+                            console.log({message: error.status});
+                            res.send({message: error.status});
                         });
                 });
             } else {
