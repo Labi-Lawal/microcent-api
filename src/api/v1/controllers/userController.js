@@ -128,7 +128,7 @@ const sendOTP = async (req, res)=>{
                         .catch(error => {
                             console.log({message: error});
                             console.log({message: error.status}); 
-                            res.send({message: error.status});
+                            res.send({message: error.status.toString()});
                         });
                 });
             } else {
@@ -152,7 +152,7 @@ const sendOTP = async (req, res)=>{
                             .catch(error => {
                                 console.log({message: error});
                                 console.log({message: error.status});
-                                res.send({message: error})
+                                res.send({message: error.status.tpString()})
                             });
                     });
                 })
