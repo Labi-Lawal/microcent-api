@@ -9,6 +9,24 @@ const sharp = require('sharp');
 const { options } = require('../routes/userRoutes');
 const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const vision = require('@google-cloud/vision');
+var crypto = require("crypto");
+var eccrypto = require("eccrypto");
+const resemble = require("resemblejs");
+const { rejects } = require('assert');
+
+const userEncryption = (req, res)=>{
+    // A new random 32-byte private key.
+var privateKey = eccrypto.generatePrivate();
+
+// Corresponding uncompressed (65-byte) public key.
+// var publicKey = eccrypto.getPublic(privateKey) ;
+
+console.log(privateKey.toString('hex'));
+
+// var str = "message to sign";
+// // Always hash you message to sign!
+// var msg = crypto.createHash("sha256").update(str).digest();
+}
 
 const userRegister = (req, res)=>{
     //Validate user request
@@ -123,11 +141,11 @@ const sendOTP = async (req, res)=>{
                         })
                         .then(message => {
                             console.log({message: 'OTP sent', ssid: message.sid});
-                            res.send({message: 'OTP sent', ssid: message.sid})
+                            res.send.status(200).send({message: 'OTP sent', ssid: message.sid})
                         })
                         .catch(error => {
                             console.log({message: error});
-                            res.send({message: error})
+                            res.status(300).send({message: "There was an error sending message, make sure phone number is not empty when you try again"})
                         });
                 });
             } else {
@@ -174,9 +192,78 @@ const verifyOTP = async (req, res)=>{
     })
 }
 
+const checkNumber = async (req, res)=>{
+    twilioClient.lookups.v1.phoneNumbers('+85255668180')
+                                            .fetch({type: ['carrier']})
+                                            .then(phone_number=> console.log(phone_number.carrier));
+}
+
+const compareUserFaceWithHKIDFace = async (req, res)=>{
+    console.log(req.files);
+    var images = [];
+
+    for(var i = 0; i < req.files.length; i++) {
+        var result = await extractFace(req.files[i].path);
+        console.log(result);
+        images.push(result.res);
+    };
+
+    resemble(images[0])
+    .compareTo(images[1])
+    .ignoreColors()
+    .onComplete(function (data) {
+        console.log(data);
+        res.status(200).send({result: data});
+    });
+
+}
+
+function extractFace (image_path) {
+    return new Promise(resolve => {
+        console.log(image_path);
+
+        // Extract face from image of hkid card
+        var image =  fs.readFileSync(image_path, {encoding: null});
+
+        // Performs face detection on the image file
+        const client = new vision.ImageAnnotatorClient({keyFilename:  path.resolve("./") + '/microcent-ml-googleapikey.json'});
+        client 
+            .faceDetection(image)
+            .then(results =>{
+                const left = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].x,
+                top = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].y,
+                width = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].x - left,
+                height = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].y - top;
+
+                sharp(image)
+                    .rotate()
+                    .extract({left: left, top: top, width: width, height: height})
+                    .toBuffer()
+                    .then(newfile=> {
+                        console.log("Image crop success");
+                        resolve({
+                            status: 'success',
+                            res: newfile
+                        });
+                    })
+                    .catch(err=>{
+                        console.log("error cropping image" + err);
+                        resolve({
+                            status: 'failed',
+                            res: newfile
+                        });
+                    });
+            })
+            .catch(results => {
+                console.log(results);
+               console.log("There was an error");
+            });
+    });
+}
+
 const extracthkid = async (req, res)=>{
 
-    var image =  fs.readFileSync(req.session.filepath, {encoding: null});
+    var image =  fs.readFileSync(req.file.path, {encoding: null});
 
     const client = new vision.ImageAnnotatorClient({
         keyFilename:  path.resolve("./") + '/microcent-ml-googleapikey.json'
@@ -190,6 +277,7 @@ const extracthkid = async (req, res)=>{
             res.status(200).send(results[0].fullTextAnnotation.text)
         })
         .catch(results => res.status(400).send("Please take picture again."));
+    
 }
 
 async function generateOTP(otpLength){
@@ -279,4 +367,4 @@ async function extractText(image) {
 
 }
 
-module.exports = { userRegister, userAuth , sendOTP, verifyOTP, extracthkid};
+module.exports = { userRegister, userAuth , sendOTP, verifyOTP, checkNumber, extracthkid, userEncryption, compareUserFaceWithHKIDFace};

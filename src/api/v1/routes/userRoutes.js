@@ -16,7 +16,9 @@ var diskStorage = multer.diskStorage({
     filename: function (req, file, cb) {
         filename = file.fieldname + '-' + Date.now() + path.extname(file.originalname);
         req.session.filepath =  path.resolve("./") + '/public/uploads/' + filename;
-        console.log(filename);
+
+        console.log(req.session.filepath);
+
         cb(null , filename);
     }
 }), hkidupload = multer({storage: diskStorage});
@@ -34,9 +36,12 @@ router.use(session({secret: "k3y!ss3cr3t", resave: false, saveUninitialized: tru
 
 router.post('/register', upload.array('user_files'), userController.userRegister);
 router.post('/auth', userController.userAuth);
-router.post('/extracthkid', hkidupload.single('hkid_image'), userController.extracthkid);
+router.post('/extracthkid', upload.single('hkid_image'), userController.extracthkid);
 router.post('/sendotp', userController.sendOTP);
 router.post('/verifyOTP', userController.verifyOTP);
+router.post('/confirmnumber', userController.sendOTP);
+router.post('/encrypt', userController.userEncryption);
+router.post('/compare', upload.array('images'), userController.compareUserFaceWithHKIDFace);
 
 module.exports = router;
 
