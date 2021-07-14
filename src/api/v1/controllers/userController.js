@@ -233,7 +233,7 @@ function extractFace (image_path) {
         client 
             .faceDetection(image)
             .then(results =>{
-                console.log(results[0].faceAnnotations);
+                console.log(results[0].faceAnnotations[0].boundingPoly);
                 const left = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].x,
                 top = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].y,
                 width = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].x - left,
