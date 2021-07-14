@@ -254,7 +254,6 @@ function extractFace (image_path, res) {
                             status: 'success',
                             res: newfile
                         });
-                        res.send("DONE");
                     })
                     .catch(err=>{
                         console.log("error cropping image" + err);
