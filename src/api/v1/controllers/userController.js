@@ -81,8 +81,8 @@ const userRegister = (req, res)=>{
                         doc_additional: urls[1].res
                     }).then((saved)=>{
                         console.log(saved);
-                        console.log(`New user '${saved.i_fname} ${saved.i_sname}' has created a new account.'`);
-                        return res.status(200).send({message: "User has been registered successfully.", firstname: saved.i_fname});
+                        console.log(`New user has been created.'`);
+                        return res.status(200).send({message: "User has been registered successfully."});
 
                         console.log('Success');
                     }).catch((error)=>{
@@ -145,7 +145,9 @@ const sendOTP = async (req, res)=>{
                         })
                         .catch(error => {
                             console.log({message: error});
-                            res.status(300).send({message: "There was an error sending message, make sure phone number is not empty when you try again"})
+                            res.status(300).send({message: "There was an error sending message, make sure phone number is not empty when you try again"});
+                            console.log({message: error.status.toString()}); 
+                            res.send({message: error.status.toString()});
                         });
                 });
             } else {
@@ -168,7 +170,8 @@ const sendOTP = async (req, res)=>{
                             })
                             .catch(error => {
                                 console.log({message: error});
-                                res.send({message: error})
+                                console.log({message: error.status.toString()});
+                                res.send({message: error.status.toString()})
                             });
                     });
                 })
@@ -332,10 +335,10 @@ function validateReq (data){
     if(!data.hkidbirthday) return { status: false, message: "hkidbirthday cannot be empty"};
     if(!data.hkidgender) return { status: false, message: "hkidgender cannot be empty"};
     if(!data.address) return { status: false, message: "address cannot be empty"};
-    if(data.hkidfirstname != data.firstname) return { status: false, message: "firstname and hkidfirstname dont match."};
-    if(data.hkidsurname != data.surname) return { status: false, message: "surname and hkidsurname don't match."};
-    if(data.hkidbirthday != data.birthday) return { status: false, message: "birthday and hkidbirthday don't match."};
-    if(data.hkidgender != data.gender) return { status: false, message: "gender and hkidgender don't match."};
+//     if(data.hkidfirstname != data.firstname) return { status: false, message: "firstname and hkidfirstname dont match."};
+//     if(data.hkidsurname != data.surname) return { status: false, message: "surname and hkidsurname don't match."};
+//     if(data.hkidbirthday != data.birthday) return { status: false, message: "birthday and hkidbirthday don't match."};
+//     if(data.hkidgender != data.gender) return { status: false, message: "gender and hkidgender don't match."};
     
     return { status: true, message: "SUCCESS"};
 }
@@ -367,4 +370,4 @@ async function extractText(image) {
 
 }
 
-module.exports = { userRegister, userAuth , sendOTP, verifyOTP, checkNumber, extracthkid, userEncryption, compareUserFaceWithHKIDFace};
+module.exports = { userRegister, userAuth , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption};
