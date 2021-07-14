@@ -206,7 +206,7 @@ const compareUserFaceWithHKIDFace = async (req, res)=>{
     var images = [];
 
     for(var i = 0; i < req.files.length; i++) {
-        var result = await extractFace(req.files[i].path);
+        var result = await extractFace(req.files[i].path, res);
         console.log(result);
         images.push(result.res);
     };
@@ -221,25 +221,30 @@ const compareUserFaceWithHKIDFace = async (req, res)=>{
 
 }
 
-function extractFace (image_path) {
+function extractFace (image_path, res) {
     return new Promise(resolve => {
         console.log(image_path);
 
         // Extract face from image of hkid card
         var image =  fs.readFileSync(image_path, {encoding: null});
-
+        
+        sharp(image)
+        .rotate()
+        .resize(1500, 1500)
+        .toBuffer()
+        .then(newimage => {
         // Performs face detection on the image file
         const client = new vision.ImageAnnotatorClient({keyFilename:  path.resolve("./") + '/microcent-ml-googleapikey.json'});
         client 
-            .faceDetection(image)
+            .faceDetection(newimage)
             .then(results =>{
-                console.log(results[0].faceAnnotations[0].boundingPoly);
+                // console.log(results[0].faceAnnotations[0].boundingPoly);
                 const left = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].x,
                 top = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].y,
                 width = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].x - left,
                 height = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].y - top;
 
-                sharp(image)
+                sharp(newimage)
                     .rotate()
                     .extract({left: left, top: top, width: width, height: height})
                     .toBuffer()
@@ -249,19 +254,23 @@ function extractFace (image_path) {
                             status: 'success',
                             res: newfile
                         });
+                        res.send("DONE");
                     })
                     .catch(err=>{
                         console.log("error cropping image" + err);
-                        resolve({
-                            status: 'failed',
-                            res: newfile
+                        res.status(400).send({
+                            message: "There was an error extracting face from image. Try again."
                         });
                     });
             })
             .catch(results => {
                 console.log(results);
-               console.log("There was an error");
+                console.log("There was an error");
+                res.status(400).send({
+                    message: "There was an error detecting face from image. Try again."
+                });
             });
+        });
     });
 }
 
