@@ -1,4 +1,4 @@
-const { UserModel, OtpModel} = require('../models');
+const { UserModel, OtpModel, KeyPairModel} = require('../models');
 const bcrypt = require('bcrypt');
 const { cloudinary } = require('../services');
 const { picture } = require('../services/cloudService');
@@ -13,19 +13,111 @@ var crypto = require("crypto");
 var eccrypto = require("eccrypto");
 const resemble = require("resemblejs");
 const { rejects } = require('assert');
+const { resolve } = require('path');
 
-const userEncryption = (req, res)=>{
-    // A new random 32-byte private key.
-var privateKey = eccrypto.generatePrivate();
+var privateKey, publicKey;
 
-// Corresponding uncompressed (65-byte) public key.
-// var publicKey = eccrypto.getPublic(privateKey) ;
+const userEncryption = async (req, res)=>{
+    // var result = await generateKeyPair();
 
-console.log(privateKey.toString('hex'));
+    
+    var privateKeyA = eccrypto.generatePrivate();
+    var publicKeyA = eccrypto.getPublic(privateKeyA);
 
-// var str = "message to sign";
-// // Always hash you message to sign!
-// var msg = crypto.createHash("sha256").update(str).digest();
+    // Encrypting the message for.
+    eccrypto.encrypt(publicKeyA, Buffer.from("Hello")).then(async encrypted=>{
+        encrypted = JSON.stringify(encrypted);
+        console.log(encrypted);
+        console.log(typeof(encrypted));
+
+        // decrypting the message.
+        eccrypto.decrypt(privateKeyA, encrypted).then(decrypted=> {
+            console.log(decrypted);
+        });
+    });
+    // var result = await encryptData("hello", res);
+    // res.status(200).send({message: "message encrypted", encryptedData: result});
+}
+
+function encryptData(data, res){
+    return new Promise(async resolve=>{
+        var result = await generateKeyPair();
+
+        // encrypt data
+        eccrypto.encrypt(publicKey, Buffer.from(data.toString()))
+                        .then(encryptedString =>{
+                            resolve(encryptedString);
+                        });
+    });
+}
+
+async function decryptData(data, res){
+    return new Promise(async resolve=>{
+        var result = await generateKeyPair();
+
+        // console.log(data);
+        // console.log(data.iv);
+
+        const newdata = {
+            iv: data.iv.buffer, ephemPublicKey: data.ephemPublicKey.buffer, ciphertext: data.ciphertext.buffer, mac: data.mac.buffer
+        };
+        // console.log(newdata);
+
+        // encrypt data
+        eccrypto.decrypt(privateKey, newdata)
+        .then(decryptedString =>{
+            console.log(decryptedString.toString());
+            resolve(decryptedString.toString());
+        })
+        .catch(error=>{
+            console.log(error);
+            res.status(500).send({message: "There was an error while decrypting user data"});
+        });
+    });
+}
+
+async function generateKeyPair(res){
+    return new Promise(resolve=> {
+        KeyPairModel.find((err, foundKeyPair)=>{
+            if(err) res.status(404).send({message: "Error finding key pair: " + err});
+            else {
+                if(foundKeyPair.length == 0) {
+                    console.log("GENERATING");
+
+                    // A new random 32-byte private key.
+                    newPrivateKey = eccrypto.generatePrivate();
+                    // Corresponding uncompressed (65-byte) public key.
+                    newPublicKey = eccrypto.getPublic(newPrivateKey);
+
+                    console.log('***************************************');
+                    console.log(newPrivateKey);
+                    console.log(newPublicKey);
+                    console.log('***************************************');
+
+                    // convert keypair to strings and save to database
+                    KeyPairModel.create({
+                        privateKey: newPrivateKey.toString('hex'),
+                        publicKey: newPublicKey.toString('hex')
+                    }).then(saved=> {
+                        privateKey = Buffer.from(saved.privateKey, 'hex'), publicKey = Buffer.from(saved.publicKey, 'hex');
+                        resolve({"status": "success"});
+                    });
+                }
+                else {
+                    console.log("FETCHING");
+
+                    console.log(foundKeyPair);
+
+                    // A new random 32-byte private key.
+                    privateKey = Buffer.from(foundKeyPair[0].privateKey, 'hex');
+                    // Corresponding uncompressed (65-byte) public key.
+                    publicKey = Buffer.from(foundKeyPair[0].publicKey, 'hex');
+
+                    resolve({"status": "success"});
+                }
+            }
+        });
+    });
 }
 
 const userRegister = (req, res)=>{
@@ -53,37 +145,39 @@ const userRegister = (req, res)=>{
             }
             
             bcrypt.genSalt(10).then(salt=>{
-                bcrypt.hash(password, salt, (err, passwordHash) =>{
+                bcrypt.hash(password, salt, async(err, passwordHash) =>{
                     UserModel.create({
-                        i_fname: firstname.toLowerCase(),
-                        i_sname: surname.toLowerCase(),
-                        i_bday: birthday.toLowerCase(),
-                        i_gender: gender.toLowerCase(),
-                        i_maritals: maritals.toLowerCase(),
-                        i_occupation: occupation.toLowerCase(),
+                        i_fname: await encryptData(firstname.toLowerCase(), res),
+                        i_sname: await encryptData(surname.toLowerCase(), res),
+                        i_bday: await encryptData(birthday.toLowerCase(), res),
+                        i_gender: await encryptData(gender.toLowerCase(), res),
+                        i_maritals: await encryptData(maritals.toLowerCase(), res),
+                        i_occupation: await encryptData(occupation.toLowerCase(), res),
 
-                        hkid_fname: hkidfirstname.toLowerCase(),
-                        hkid_sname: hkidsurname.toLowerCase(),
-                        hkid_bday: hkidbirthday.toLowerCase(),
-                        hkid_gender: hkidgender.toLowerCase(),
+                        hkid_fname: await encryptData(hkidfirstname.toLowerCase(), res),
+                        hkid_sname: await encryptData(hkidsurname.toLowerCase(), res),
+                        hkid_bday: await encryptData(hkidbirthday.toLowerCase(), res),
+                        hkid_gender: await encryptData(hkidgender.toLowerCase(), res),
                         // hkid_photo: urls[0].res,
                         // doc_hkid: urls[1].res,
 
                         // i_photo: urls[2].res,
                         
-                        i_address: address,
-                        doc_address: urls[0].res,
+                        i_address: await encryptData(address, res),
+                        doc_address: await encryptData(urls[0].res),
 
                         i_email: email.toLowerCase(),
-                        i_phone: phone.toLowerCase(),
+                        i_phone: await encryptData(phone.toLowerCase()),
                         i_pass: passwordHash,
 
-                        doc_additional: urls[1].res
+                        doc_additional: await encryptData(urls[1].res)
                     }).then((saved)=>{
                         console.log(saved);
                         console.log(`New user has been created.'`);
-                        return res.status(200).send({message: "User has been registered successfully."});
-
+                        return res.status(200).send({
+                            message: "User has been registered successfully.",
+                            data: saved
+                        });
                         console.log('Success');
                     }).catch((error)=>{
                         return res.status(409).send({message: error.message});
@@ -97,7 +191,45 @@ const userRegister = (req, res)=>{
     });
 }
 
-const userAuth = (req, res)=>{
+const userAuthDec = (req, res)=>{
+    console.log(req.body);
+    const { email, password } = req.body;
+
+    UserModel.findOne({i_email: email}).then((foundUser)=>{
+        if(!foundUser) return res.status(404).send({message: "User doesn't exist."});
+        bcrypt.compare(password, foundUser.i_pass, async (error, result)=>{
+            if(error) res.status(500).send({message: "There was a server error, please try again."});
+            if(!result) return res.status(404).send({message: "Wrong password."});
+           
+            req.session.user = foundUser;
+            req.session.user._id = foundUser._id;
+            req.session.user.i_email = foundUser.i_email;
+            req.session.user.dateCreated = foundUser.dateCreated;
+            req.session.user.i_fname = await decryptData(foundUser.i_fname, res);
+            req.session.user.i_sname = await decryptData(foundUser.i_sname, res);
+            req.session.user.i_bday = await decryptData(foundUser.i_bday, res);
+            req.session.user.i_gender = await decryptData(foundUser.i_gender, res);
+            req.session.user.i_maritals = await decryptData(foundUser.i_maritals, res);
+            req.session.user.i_occupation = await decryptData(foundUser.i_occupation, res);
+            req.session.user.hkid_fname = await decryptData(foundUser.hkid_fname, res);
+            req.session.user.hkid_sname = await decryptData(foundUser.hkid_sname, res);
+            req.session.user.hkid_bday = await decryptData(foundUser.hkid_bday, res);
+            req.session.user.hkid_gender = await decryptData(foundUser.hkid_gender, res);
+            req.session.user.i_address = await decryptData(foundUser.i_address, res);
+            req.session.user.doc_address = await decryptData(foundUser.doc_address, res);
+            req.session.user.i_phone = await decryptData(foundUser.i_phone, res);
+            req.session.user.doc_additional = await decryptData(foundUser.doc_additional, res);
+            
+            console.log(`User ${foundUser.i_email} has signed in.`);
+            return res.status(200).send({message: "You have successfully signed in", data: req.session.user});
+        });
+    }).catch((error)=>{
+        console.log(error);
+        return res.status(500).send({message: "There was a server error, please try again."});
+    });
+}
+
+const userAuthEnc = (req, res)=>{
     console.log(req.body);
     const { email, password } = req.body;
 
@@ -117,6 +249,10 @@ const userAuth = (req, res)=>{
         console.log(error);
         return res.status(500).send({message: "There was a server error, please try again."});
     });
+}
+
+const userAuthEncrypt = (req, res)=>{
+
 }
 
 const sendOTP = async (req, res)=>{
@@ -196,9 +332,10 @@ const verifyOTP = async (req, res)=>{
 }
 
 const checkNumber = async (req, res)=>{
-    twilioClient.lookups.v1.phoneNumbers('+85255668180')
-                                            .fetch({type: ['carrier']})
-                                            .then(phone_number=> console.log(phone_number.carrier));
+    twilioClient.lookups.v1
+                        .phoneNumbers('+85255668180')
+                        .fetch({type: ['carrier']})
+                        .then(phone_number=> console.log(phone_number.carrier));
 }
 
 const compareUserFaceWithHKIDFace = async (req, res)=>{
@@ -379,4 +516,4 @@ async function extractText(image) {
 
 }
 
-module.exports = { userRegister, userAuth , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption};
+module.exports = { userRegister, userAuthDec, userAuthEnc , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption, userAuthEncrypt};
