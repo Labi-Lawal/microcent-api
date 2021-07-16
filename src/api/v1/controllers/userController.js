@@ -395,12 +395,12 @@ function extractFace (image_path, res) {
         //         width = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].x - left,
         //         height = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].y - top;
 
-                sharp(newimage)
-                    .rotate()
-                    .extract({left: left, top: top, width: width, height: height})
-                    .toBuffer()
-                    // .toFile()
-                    .then(newfile=> {
+                // sharp(newimage)
+                //     .rotate()
+                //     .extract({left: left, top: top, width: width, height: height})
+                //     .toBuffer()
+                //     // .toFile()
+                //     .then(newfile=> {
                         fs.writeFile(image_path, newfile, ()=>{
                             console.log("Image crop success : ");
                             resolve({
@@ -423,7 +423,7 @@ function extractFace (image_path, res) {
             //         message: "There was an error detecting face from image. Try again."
             //     });
             // });
-        });
+        // });
     });
 }
 
