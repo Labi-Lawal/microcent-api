@@ -381,7 +381,7 @@ function extractFace (image_path, res) {
         
         sharp(image)
         .rotate()
-        .resize(1500, 1500)
+        .resize(500, 500)
         .toBuffer()
         .then(newimage => {
         // Performs face detection on the image file
