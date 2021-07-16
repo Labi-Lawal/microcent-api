@@ -332,26 +332,31 @@ const verifyOTP = async (req, res)=>{
 
 const checkNumber = async (req, res)=>{
     twilioClient.lookups.v1
-                    .phoneNumbers('+85255668180')
-                    .fetch({type: ['carrier']})
-                    .then(phone_number=> console.log(phone_number.carrier));
+                        .phoneNumbers('+85255668180')
+                        .fetch({type: ['carrier']})
+                        .then(phone_number=> console.log(phone_number.carrier));
 }
 
 const compareUserFaceWithHKIDFace = async (req, res)=>{
+    console.log(req.files);
+    var images = [];
+
+    for(var i = 0; i < req.files.length; i++) {
+        var result = await extractFace(req.files[i].path, res);
+        images.push(result.res);
+    };
 
     var URL = "https://api-us.faceplusplus.com/facepp/v3/compare";
 
     let data = new FormData();
     data.append('api_key', '1pahw7P_26ExSA14-nrQh4NZ_c0UGGNt');
     data.append('api_secret', 'SeYAjRPz-RZVCFMU0wJikoZVQHYN8Kn5');
-    data.append('image_file1', fs.createReadStream(req.files[0].path));
-    data.append('image_file2', fs.createReadStream(req.files[1].path));
+    data.append('image_file1', fs.createReadStream(images[0]));
+    data.append('image_file2', fs.createReadStream(images[1]));
 
     axios.post(URL, data, {
         headers: {
-            "Content-Type": `multipart/form-data; boundary=${data.getBoundary()}`,
-            api_key: '1pahw7P_26ExSA14-nrQh4NZ_c0UGGNt',
-            api_secret: 'SeYAjRPz-RZVCFMU0wJikoZVQHYN8Kn5',
+            "Content-Type": `multipart/form-data; boundary=${data.getBoundary()}`
         }
     })
     .then(function (response) {
@@ -391,11 +396,14 @@ function extractFace (image_path, res) {
                     .rotate()
                     .extract({left: left, top: top, width: width, height: height})
                     .toBuffer()
+                    // .toFile()
                     .then(newfile=> {
-                        console.log("Image crop success");
-                        resolve({
-                            status: 'success',
-                            res: newfile
+                        fs.writeFile(image_path, newfile, ()=>{
+                            console.log("Image crop success : ");
+                            resolve({
+                                status: 'success',
+                                res: image_path
+                            });
                         });
                     })
                     .catch(err=>{
