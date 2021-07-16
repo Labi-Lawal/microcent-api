@@ -276,7 +276,7 @@ const sendOTP = async (req, res)=>{
                         })
                         .then(message => {
                             console.log({message: 'OTP sent', ssid: message.sid});
-                            res.send.status(200).send({message: 'OTP sent', ssid: message.sid})
+                            res.status(200).send({message: 'OTP sent', ssid: message.sid})
                         })
                         .catch(error => {
                             console.log({message: error});
