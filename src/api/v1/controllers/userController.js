@@ -385,15 +385,15 @@ function extractFace (image_path, res) {
         .toBuffer()
         .then(newimage => {
         // Performs face detection on the image file
-        const client = new vision.ImageAnnotatorClient({keyFilename:  path.resolve("./") + '/microcent-ml-googleapikey.json'});
-        client 
-            .faceDetection(newimage)
-            .then(results =>{
-                // console.log(results[0].faceAnnotations[0].boundingPoly);
-                const left = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].x,
-                top = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].y,
-                width = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].x - left,
-                height = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].y - top;
+        // const client = new vision.ImageAnnotatorClient({keyFilename:  path.resolve("./") + '/microcent-ml-googleapikey.json'});
+        // client 
+        //     .faceDetection(newimage)
+        //     .then(results =>{
+        //         // console.log(results[0].faceAnnotations[0].boundingPoly);
+        //         const left = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].x,
+        //         top = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[0].y,
+        //         width = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].x - left,
+        //         height = results[0].faceAnnotations[results[0].faceAnnotations.length - 1].boundingPoly.vertices[2].y - top;
 
                 sharp(newimage)
                     .rotate()
@@ -415,14 +415,14 @@ function extractFace (image_path, res) {
                             message: "There was an error extracting face from image. Try again."
                         });
                     });
-            })
-            .catch(results => {
-                console.log(results);
-                console.log("There was an error");
-                res.status(400).send({
-                    message: "There was an error detecting face from image. Try again."
-                });
-            });
+            // })
+            // .catch(results => {
+            //     console.log(results);
+            //     console.log("There was an error");
+            //     res.status(400).send({
+            //         message: "There was an error detecting face from image. Try again."
+            //     });
+            // });
         });
     });
 }
