@@ -9,11 +9,12 @@ const sharp = require('sharp');
 const { options } = require('../routes/userRoutes');
 const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const vision = require('@google-cloud/vision');
+const axios = require("axios");
+const FormData = require("form-data");
 var crypto = require("crypto");
 var eccrypto = require("eccrypto");
-const resemble = require("resemblejs");
-const { rejects } = require('assert');
-const { resolve } = require('path');
+var facePP = require('faceppsdk');
+
 
 var privateKey, publicKey;
 
@@ -251,9 +252,7 @@ const userAuthEnc = (req, res)=>{
     });
 }
 
-const userAuthEncrypt = (req, res)=>{
-
-}
+const userAuthEncrypt = (req, res)=>{}
 
 const sendOTP = async (req, res)=>{
     // GENERATE OTP
@@ -333,29 +332,36 @@ const verifyOTP = async (req, res)=>{
 
 const checkNumber = async (req, res)=>{
     twilioClient.lookups.v1
-                        .phoneNumbers('+85255668180')
-                        .fetch({type: ['carrier']})
-                        .then(phone_number=> console.log(phone_number.carrier));
+                    .phoneNumbers('+85255668180')
+                    .fetch({type: ['carrier']})
+                    .then(phone_number=> console.log(phone_number.carrier));
 }
 
 const compareUserFaceWithHKIDFace = async (req, res)=>{
-    console.log(req.files);
-    var images = [];
 
-    for(var i = 0; i < req.files.length; i++) {
-        var result = await extractFace(req.files[i].path, res);
-        console.log(result);
-        images.push(result.res);
-    };
+    var URL = "https://api-us.faceplusplus.com/facepp/v3/compare";
 
-    resemble(images[0])
-    .compareTo(images[1])
-    .ignoreColors()
-    .onComplete(function (data) {
-        console.log(data);
-        res.status(200).send({result: data});
+    let data = new FormData();
+    data.append('api_key', '1pahw7P_26ExSA14-nrQh4NZ_c0UGGNt');
+    data.append('api_secret', 'SeYAjRPz-RZVCFMU0wJikoZVQHYN8Kn5');
+    data.append('image_file1', fs.createReadStream(req.files[0].path));
+    data.append('image_file2', fs.createReadStream(req.files[1].path));
+
+    axios.post(URL, data, {
+        headers: {
+            "Content-Type": `multipart/form-data; boundary=${data.getBoundary()}`,
+            api_key: '1pahw7P_26ExSA14-nrQh4NZ_c0UGGNt',
+            api_secret: 'SeYAjRPz-RZVCFMU0wJikoZVQHYN8Kn5',
+        }
+    })
+    .then(function (response) {
+        console.log(response);
+        res.status(200).send({percentage: response.data.confidence});
+    })
+    .catch(function (error) {
+        console.log(error);
+        res.status(500).send({result: "There was an error: " + error});
     });
-
 }
 
 function extractFace (image_path, res) {
