@@ -401,7 +401,7 @@ function extractFace (image_path, res) {
                 //     .toBuffer()
                 //     // .toFile()
                 //     .then(newfile=> {
-                        fs.writeFile(image_path, newfile, ()=>{
+                        fs.writeFile(image_path, newimage, ()=>{
                             console.log("Image crop success : ");
                             resolve({
                                 status: 'success',
