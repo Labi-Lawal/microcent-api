@@ -348,11 +348,14 @@ const compareUserFaceWithHKIDFace = async (req, res)=>{
 
     var URL = "https://api-us.faceplusplus.com/facepp/v3/compare";
 
+
     let data = new FormData();
     data.append('api_key', '1pahw7P_26ExSA14-nrQh4NZ_c0UGGNt');
     data.append('api_secret', 'SeYAjRPz-RZVCFMU0wJikoZVQHYN8Kn5');
     data.append('image_file1', fs.createReadStream(images[0]));
     data.append('image_file2', fs.createReadStream(images[1]));
+
+    console.log(data);
 
     axios.post(URL, data, {
         headers: {
