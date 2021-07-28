@@ -1,4 +1,4 @@
-const { UserModel, OtpModel, KeyPairModel} = require('../models');
+const { UserModel, OtpModel, KeyPairModel, PartnerModel} = require('../models');
 const bcrypt = require('bcrypt');
 const { cloudinary } = require('../services');
 const { picture } = require('../services/cloudService');
@@ -14,6 +14,8 @@ const FormData = require("form-data");
 var crypto = require("crypto");
 var eccrypto = require("eccrypto");
 var facePP = require('faceppsdk');
+const NodeRSA = require('node-rsa');
+const { format } = require('path');
 
 
 var privateKey, publicKey;
@@ -21,7 +23,6 @@ var privateKey, publicKey;
 const userEncryption = async (req, res)=>{
     // var result = await generateKeyPair();
 
-    
     var privateKeyA = eccrypto.generatePrivate();
     var publicKeyA = eccrypto.getPublic(privateKeyA);
 
@@ -56,13 +57,12 @@ async function decryptData(data, res){
     return new Promise(async resolve=>{
         var result = await generateKeyPair();
 
-        // console.log(data);
-        // console.log(data.iv);
-
         const newdata = {
-            iv: data.iv.buffer, ephemPublicKey: data.ephemPublicKey.buffer, ciphertext: data.ciphertext.buffer, mac: data.mac.buffer
+            iv: data.iv.buffer, 
+            ephemPublicKey: data.ephemPublicKey.buffer, 
+            ciphertext: data.ciphertext.buffer, 
+            mac: data.mac.buffer
         };
-        // console.log(newdata);
 
         // encrypt data
         eccrypto.decrypt(privateKey, newdata)
@@ -122,6 +122,8 @@ async function generateKeyPair(res){
 }
 
 const userRegister = (req, res)=>{
+    console.log(req.body);
+
     //Validate user request
     var result = validateReq(req.body);
     if(!result.status) return res.status(422).send({message: result.message});
@@ -148,17 +150,17 @@ const userRegister = (req, res)=>{
             bcrypt.genSalt(10).then(salt=>{
                 bcrypt.hash(password, salt, async(err, passwordHash) =>{
                     UserModel.create({
-                        i_fname: await encryptData(firstname.toLowerCase(), res),
-                        i_sname: await encryptData(surname.toLowerCase(), res),
-                        i_bday: await encryptData(birthday.toLowerCase(), res),
-                        i_gender: await encryptData(gender.toLowerCase(), res),
-                        i_maritals: await encryptData(maritals.toLowerCase(), res),
-                        i_occupation: await encryptData(occupation.toLowerCase(), res),
+                        i_fname: await encryptData(firstname, res),
+                        i_sname: await encryptData(surname, res),
+                        i_bday: await encryptData(birthday, res),
+                        i_gender: await encryptData(gender, res),
+                        i_maritals: await encryptData(maritals, res),
+                        i_occupation: await encryptData(occupation, res),
 
-                        hkid_fname: await encryptData(hkidfirstname.toLowerCase(), res),
-                        hkid_sname: await encryptData(hkidsurname.toLowerCase(), res),
-                        hkid_bday: await encryptData(hkidbirthday.toLowerCase(), res),
-                        hkid_gender: await encryptData(hkidgender.toLowerCase(), res),
+                        hkid_fname: await encryptData(hkidfirstname, res),
+                        hkid_sname: await encryptData(hkidsurname, res),
+                        hkid_bday: await encryptData(hkidbirthday, res),
+                        hkid_gender: await encryptData(hkidgender, res),
                         // hkid_photo: urls[0].res,
                         // doc_hkid: urls[1].res,
 
@@ -168,7 +170,7 @@ const userRegister = (req, res)=>{
                         doc_address: await encryptData(urls[0].res),
 
                         i_email: email.toLowerCase(),
-                        i_phone: await encryptData(phone.toLowerCase()),
+                        i_phone: await encryptData(phone),
                         i_pass: passwordHash,
 
                         doc_additional: await encryptData(urls[1].res)
@@ -222,6 +224,7 @@ const userAuthDec = (req, res)=>{
             req.session.user.doc_additional = await decryptData(foundUser.doc_additional, res);
             
             console.log(`User ${foundUser.i_email} has signed in.`);
+            console.log(req.session.user);
             return res.status(200).send({message: "You have successfully signed in", data: req.session.user});
         });
     }).catch((error)=>{
@@ -250,9 +253,11 @@ const userAuthEnc = (req, res)=>{
         console.log(error);
         return res.status(500).send({message: "There was a server error, please try again."});
     });
-}
+} 
 
-const userAuthEncrypt = (req, res)=>{}
+const userAuthEncrypt = (req, res)=>{
+
+}
 
 const sendOTP = async (req, res)=>{
     // GENERATE OTP
@@ -533,4 +538,329 @@ async function extractText(image) {
 
 }
 
-module.exports = { userRegister, userAuthDec, userAuthEnc , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption, userAuthEncrypt};
+function validatePartner(data){
+    const emailRegExp = /^[-!#$%&'*+\/0-9=?A-Z^_a-z{|}~](\.?[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~])*@[a-zA-Z0-9](-*\.?[a-zA-Z0-9])*\.[a-zA-Z](-?[a-zA-Z0-9])+$/;
+    if(Object.keys(data).length === 0) return { status: false, message: "You cannot leave the fields empty"};
+    if(!emailRegExp.test(data.email)) return { status: false, message: "Email isn't correct"};
+
+    return { status: true, message: "SUCCESS"};
+}
+
+const register = async (req, res)=>{
+     //Validate user request
+     var result = validatePartner(req.body);
+     if(!result.status) return res.status(422).send({message: result.message});
+
+    var { keypair } =  await generatePartnerKeyPair();
+    const { email, password } = req.body;
+ 
+     // Check if user already exists
+    PartnerModel.findOne({email: email.toLowerCase()}).then(async (foundPartner)=>{
+        if(foundPartner) return res.status(409).send({message: "Partner with this email already exist."});
+        else {
+            bcrypt.genSalt(10).then(salt=>{
+                bcrypt.hash(password, salt, async(err, passwordHash) =>{
+                    console.log(result);
+                PartnerModel.create({
+                    privateKey: keypair.privatekey,
+                    publicKey: keypair.publickey,
+                    email: email.toLowerCase(),
+                    password: passwordHash,
+                }).then((saved)=>{
+                        console.log(`New user has been created.'`);
+                        saved.password = undefined;
+
+                        return res.status(200).send({
+                            message: "User has been registered successfully.",
+                            data: saved,
+                        });
+                    }).catch((error)=>{
+                        return res.status(409).send({message: error.message});
+                    });
+                });
+            });
+        }
+     }).catch((error)=>{
+         console.log(error);
+         return res.status(500).send({message: "There was a server error, not your fault, we are on it."});
+     });
+}
+
+function generatePartnerKeyPair(){
+    return new Promise(resolve=> {
+
+        // A new random 32-byte private key.
+        newPrivateKey = eccrypto.generatePrivate();
+        // Corresponding uncompressed (65-byte) public key.
+        newPublicKey = eccrypto.getPublic(newPrivateKey);
+
+        console.log('***************************************');
+        console.log(newPrivateKey);
+        console.log(newPublicKey);
+        console.log('***************************************');
+
+        resolve({"status": "success", "keypair": {privatekey: newPrivateKey.toString('hex'), publickey: newPublicKey.toString('hex')}});
+
+    });
+}
+
+const requestAccess = async (req, res)=>{
+    const {email, password, requestEmail} = req.body;
+    var partnerKey;
+
+    PartnerModel.findOne({email: email}, (err, foundPartner)=>{
+        if(err) res.status(500).send({message: "There was an error authenticating user, please try again."});
+        else {
+            if(!foundPartner) res.status(404).send({message: "Partner with this email doesn't exist. Please create an  account."});
+            else {
+                partnerKey = foundPartner.publicKey;
+
+                bcrypt.compare(password, foundPartner.password, async (error, result)=>{
+                    if(error) res.status(404).send({message: "There was an error authenticating partner, try again."});
+                    else {
+                        if(!result) res.status(404).send({message: "Invalid password, try again."});
+                        else {
+                            console.log("requestEmail: " + requestEmail);
+                            // Find User 
+                            UserModel.findOne({i_email: requestEmail}, (err, foundUser)=>{
+                                if(err) res.status(500).send({message: "There was an error finding user, please try again."});
+                                else {
+                                    if(!foundUser) res.status(404).send({message: "User doesn't exist, therefore, request couldn't be made."});
+                                    else {
+                                        // Create Request If User Exist
+                                        PartnerModel.updateOne(
+                                            {email: email},
+                                            {$push: {requests: {email: requestEmail, accessGranted: false}}},
+                                            {new: true},
+                                            (err, partnerUpdated)=>{
+                                                if(err) res.status(500).send({message: "There was an error requesting access, please try again."});
+                                                else {
+                                                    if(!partnerUpdated) res.status(404).send({message: "There was an error requesting access, please try again."});
+                                                    else {
+                                                        // Alert User Of Request
+                                                        UserModel.updateOne(
+                                                            {i_email: requestEmail},
+                                                            {$push: {requests: {publicKey: partnerKey, email: email, accessGranted: false}}},
+                                                            (err, userNotified)=>{
+                                                                if(err) res.status(500).send({message: "There was an error notifying user about request, please try again."});
+                                                                else{
+                                                                    if(!userNotified) res.status(400).send({message: "There was an error notifying user about request, please try again."});
+                                                                    else {
+                                                                        console.log("success");
+                                                                        res.status(200).send({message: "Request has been made and alert sent to user."});
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        );
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        }
+    })    
+}
+
+var pubKey, privKey;
+
+const grantPartnerAccess = async (req, res)=>{
+    var { email, partnerEmail, pub, firstname, surname, gender, marital, occupation, birthday, address, phone, hkidfirstname, hkidsurname, hkidgender, hkidbirthday } = req.body;
+    // var firstname, surname, gender, marital, occupation, birthday, address, phone, hkidfirstname, hkidsurname, hkidgender, hkidbirthday;
+
+    console.log(pub);
+    pubKey = Buffer.from(pub, 'hex');
+    console.log(pubKey);
+
+    UserModel.findOne({i_email: email}, (err, foundUser)=>{
+        if(err) res.status(500).send({message: "There was an error fetching user data"});
+        else {
+            if(!foundUser) res.status(404).send({message: "User doesn't exist."});
+            else {
+                UserModel.updateOne(
+                    {i_email: email, 'requests.email' : partnerEmail},
+                    {$set: {'requests.$.accessGranted' : true}},
+                    {new: true},
+                    async (err, updatedUser)=>{
+                        if(err) res.status(500).send({message: "There was an error granting access", error: err});
+                        else {
+                            if(!updatedUser) res.status(404).send({message: "There was an error granting access",  error: err});
+                            else {
+                                var result;
+                                new Promise(async resolve => {
+                                    firstname = await encryptPartnerData(firstname, pubKey);
+                                    surname = await encryptPartnerData(surname, pubKey);
+                                    gender = await encryptPartnerData(gender, pubKey);
+                                    marital = await encryptPartnerData(marital, pubKey);
+                                    occupation = await encryptPartnerData(occupation, pubKey);
+                                    birthday = await encryptPartnerData(birthday, pubKey);
+                                    address = await encryptPartnerData(address, pubKey);
+                                    phone = await encryptPartnerData(phone, pubKey);
+                                    hkidfirstname = await encryptPartnerData(hkidfirstname, pubKey);
+                                    hkidsurname = await encryptPartnerData(hkidsurname, pubKey);
+                                    hkidgender = await encryptPartnerData(hkidgender, pubKey);
+                                    hkidbirthday = await encryptPartnerData(hkidbirthday, pubKey);
+
+                                    result = "success";
+                                    resolve(result);
+                                }).then(()=>{
+                                    if(result == "success") {
+                                        console.log("SUCCESS");
+
+                                        PartnerModel.updateOne(
+                                            {email: partnerEmail, 'requests.email' : email},
+                                            {$set: {
+                                                'requests.$.accessGranted' : true,
+                                                'requests.$.firstname' : firstname,
+                                                'requests.$.surname' : surname,
+                                                'requests.$.gender' : gender,
+                                                'requests.$.marital' : marital,
+                                                'requests.$.occupation' : occupation,
+                                                'requests.$.birthday' : birthday,
+                                                'requests.$.address' : address,
+                                                'requests.$.phone' : phone,
+                                                'requests.$.hkidfirstname' : hkidfirstname,
+                                                'requests.$.hkidsurname' : hkidsurname,
+                                                'requests.$.hkidgender' : hkidgender,
+                                                'requests.$.hkidbirthday' : hkidbirthday,
+                                                }, 
+                                            },
+                                            {new: true},
+                                            (err, updatedUser)=>{
+                                                if(err) {
+                                                    console.log(err);
+                                                    res.status(500).send({message: "There was an error granting access"});
+                                                }
+                                                else {
+                                                    if(!updatedUser) {
+                                                        res.status(404).send({message: "There was an error granting access"});
+                                                    }
+                                                    else {
+                                                        console.log(updatedUser);
+                                                        console.log("Updated Successfully, Access Granted");
+                                                        res.status(200).send({message: "Access to  " +  email + " data has been granted to " + partnerEmail + ""});
+                                                    } 
+                                                }
+                                            }  
+                                        );
+                                    } else {
+                                        console.log("Failed")
+                                    }
+                                });
+                            } 
+                        }
+                    }  
+                );
+            }
+        }
+    });
+}
+
+const accessData = async (req, res)=>{
+    var { email, password, requestEmail } = req.body;
+
+    var requestData;
+
+    PartnerModel.findOne(
+        {email: email},
+        (err, foundPartner)=>{
+            if(err) res.status(500).send({message: "There was an error fetching user data"});
+          else {
+              if(!foundPartner) res.status(404).send({message: "Partner doesn't exist."});
+              else{
+                bcrypt.compare(password, foundPartner.password, async (error, result)=>{
+                    if(error) res.status(500).send({message: "There was a server error, please try again."});
+                    if(!result) return res.status(404).send({message: "Wrong password."});
+                    if(result) {
+
+                        for(var i = 0; i < foundPartner.requests.length; i++){
+                            if(foundPartner.requests[i].email == requestEmail){
+                                privKey = Buffer.from(foundPartner.privateKey, 'hex');
+
+                                requestData = foundPartner.requests[i];
+
+                                requestData._id = foundPartner._id;
+                                requestData.email = foundPartner.email;
+                                requestData.firstname = await decryptPartnerData(requestData.firstname, privKey);
+                                requestData.surname = await decryptPartnerData(requestData.surname, privKey);
+                                requestData.gender = await decryptPartnerData(requestData.gender, privKey);
+                                requestData.birthday = await decryptPartnerData(requestData.birthday, privKey);
+                                requestData.occupation = await decryptPartnerData(requestData.occupation, privKey);
+                                requestData.marital = await decryptPartnerData(requestData.marital, privKey);
+                                requestData.phone = await decryptPartnerData(requestData.phone, privKey);
+                                requestData.address = await decryptPartnerData(requestData.address, privKey);
+                                requestData.hkidfirstname = await decryptPartnerData(requestData.hkidfirstname, privKey);
+                                requestData.hkidsurname = await decryptPartnerData(requestData.hkidsurname, privKey);
+                                requestData.hkidbirthday = await decryptPartnerData(requestData.hkidbirthday, privKey);
+                                requestData.hkidgender = await decryptPartnerData(requestData.hkidgender, privKey);
+                                
+                                // i = foundPartner.requests.length;
+                                console.log(requestData);
+                                return res.status(200).send({message: "Access has been granted to you", data: requestData});
+                                       
+                            }
+                        }
+                    }
+                });
+              }
+          }
+            
+        }
+    );
+}
+
+async function encryptPartnerData(data, partner_public_key) {
+    return new Promise(async resolve=>{
+        // encrypt data
+        console.log(data + " " + partner_public_key)
+        eccrypto.encrypt(partner_public_key, Buffer.from(data.toString()))
+            .then(encryptedString =>{
+                console.log(encryptedString);
+                resolve(encryptedString);
+            });
+    });
+}
+
+function decryptPartnerData(data, partner_private_key) {
+    return new Promise(async resolve=>{
+        const newdata = {
+            iv: data.iv.buffer, 
+            ephemPublicKey: data.ephemPublicKey.buffer, 
+            ciphertext: data.ciphertext.buffer, 
+            mac: data.mac.buffer
+        };
+
+        // encrypt data
+        eccrypto.decrypt(partner_private_key, newdata)
+        .then(decryptedString =>{
+            console.log(decryptedString.toString());
+            resolve(decryptedString.toString());
+        })
+        .catch(error=>{
+            console.log(error);
+            res.status(500).send({message: "There was an error while decrypting partner data"});
+        });
+    });
+}
+
+const fetchPartnerRequests = async (req, res)=>{
+    const { email, password } = req.body;
+
+    UserModel.findOne({i_email: email}, (err, foundUser)=>{
+        if(err) res.status(500).send({message: "There was an error fetching user data"});
+        else {
+            if(!foundUser) res.status(404).send({message: "User doesnt exist."});
+            else {
+                res.status(200).send({message: "success", requests: foundUser.requests});      
+            }
+        }
+    })
+}
+
+
+module.exports = {accessData, grantPartnerAccess, userRegister, userAuthDec, userAuthEnc , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption, userAuthEncrypt, register, requestAccess, fetchPartnerRequests};

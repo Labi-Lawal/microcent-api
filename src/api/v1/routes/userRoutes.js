@@ -43,6 +43,9 @@ router.post('/verifyOTP', userController.verifyOTP);
 router.post('/confirmnumber', userController.sendOTP);
 router.post('/encrypt', userController.userEncryption);
 router.post('/compare', upload.array('images'), userController.compareUserFaceWithHKIDFace);
+router.post('/requests', userController.fetchPartnerRequests);
+router.post('/grantpartneraccess', userController.grantPartnerAccess);
+
 
 module.exports = router;
 

@@ -32,7 +32,13 @@ const UserSchema = mongoose.Schema({
     // Additional Proof
     doc_additional: {type: Object}, 
 
-    dateCreated: {type: Date, default: Date.now}, 
+    dateCreated: {type: Date, default: Date.now},
+
+    requests: [{
+        publicKey: String,
+        email: String,
+        accessGranted: Boolean
+    }]
 });
 
 const User = mongoose.model('users', UserSchema);
