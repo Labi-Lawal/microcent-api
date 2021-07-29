@@ -1,4 +1,4 @@
-const { UserModel, OtpModel, KeyPairModel, PartnerModel} = require('../models');
+const { UserModel, OtpModel, KeyPairModel, PartnerModel, ForgotPasswordModel } = require('../models');
 const bcrypt = require('bcrypt');
 const { cloudinary } = require('../services');
 const { picture } = require('../services/cloudService');
@@ -14,8 +14,9 @@ const FormData = require("form-data");
 var crypto = require("crypto");
 var eccrypto = require("eccrypto");
 var facePP = require('faceppsdk');
-const NodeRSA = require('node-rsa');
 const { format } = require('path');
+const User = require('../models/UserModel');
+const Partner = require('../models/PartnerModel');
 
 
 var privateKey, publicKey;
@@ -181,7 +182,6 @@ const userRegister = (req, res)=>{
                             message: "User has been registered successfully.",
                             data: saved
                         });
-                        console.log('Success');
                     }).catch((error)=>{
                         return res.status(409).send({message: error.message});
                     });
@@ -862,5 +862,90 @@ const fetchPartnerRequests = async (req, res)=>{
     })
 }
 
+const requestNewPassword = async (req, res)=>{
+    const { email } = req.body;
+    var code;
 
-module.exports = {accessData, grantPartnerAccess, userRegister, userAuthDec, userAuthEnc , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption, userAuthEncrypt, register, requestAccess, fetchPartnerRequests};
+    UserModel.findOne({i_email: email}, async (err, foundUser)=>{
+        if(err) res.status(500).send({message: "There was an error fetching user data"});
+        else {
+            if(!foundUser)  res.status(404).send({message: "User doesnt exist."});
+            else {
+                code = await generateOTP(9);
+                ForgotPasswordModel.findOne({email: email}, (err, foundUserNewPasswordRequest)=>{
+                    if(err) res.status(500).send({message: "There was an error fetching user data"});
+                    else {
+                        if(foundUserNewPasswordRequest) {
+                            ForgotPasswordModel.deleteOne({email: email}, (err, deleted)=>{
+                                if(deleted){
+                                    ForgotPasswordModel.create({
+                                        email: email,
+                                        code: code
+                                    }).then(saved => {
+                                        res.status(200).send({message: "request granted", code: saved.code});
+                                    });
+                                } else {
+                                    res.status(500).send({message: "There was an error creating request"});
+                                }
+                            });
+                        }
+                        else {
+                            ForgotPasswordModel.create({
+                                email: email,
+                                code: code
+                            }).then(saved => {
+                                res.status(200).send({message: "request granted", code: saved.code});
+                            });
+                        }
+                    }
+                })
+            }
+        }
+    })
+}
+
+const setNewPassword = async (req, res)=>{
+    const { email, code, newpassword } = req.body;
+
+    ForgotPasswordModel.findOne({email: email}, (err, foundRequest)=>{
+        if(err) res.status(500).send({message: "There was an error confirming request"});
+        else {
+            if(!foundRequest) res.status(404).send({message: "Request doesn't exist"});
+            else {
+               if(foundRequest.code != code) res.status(404).send({message: "Invalid Code"});
+                else {
+                    UserModel.findOne({i_email: email}, (err, foundUser)=>{
+                        if(err) res.status(500).send({message: "There was an error fetching user data"});
+                        else {
+                            if(!foundUser) res.status(404).send({message: "User doesnt exist."});
+                            else {
+                                bcrypt.genSalt(10).then(salt=>{
+                                    bcrypt.hash(newpassword, salt, async(err, passwordHash) =>{
+                                        UserModel.updateOne(
+                                            {i_email: foundUser.i_email},
+                                            {$set: {i_pass: passwordHash}},
+                                            // {new: true},
+                                            (err, updatedUser)=>{
+                                                if(err) res.status(500).send({message: "There was an error updating password."});
+                                                else {
+                                                    if(!updatedUser) res.status(409).send({message: "Couldn't update user password"});
+                                                    else {
+                                                        ForgotPasswordModel.deleteOne({email: email}, (err, deleted)=>{
+                                                            res.status(200).send({message: "User password updated successfully", newPass: passwordHash}); 
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                        );  
+                                    });
+                                });
+                            }
+                        }
+                    })
+               }
+            }
+        }
+    });
+}
+
+module.exports = {setNewPassword, requestNewPassword, accessData, grantPartnerAccess, userRegister, userAuthDec, userAuthEnc , sendOTP, verifyOTP, extracthkid, compareUserFaceWithHKIDFace, userEncryption, userAuthEncrypt, register, requestAccess, fetchPartnerRequests};
