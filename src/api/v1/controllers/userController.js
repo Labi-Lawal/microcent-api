@@ -445,7 +445,8 @@ const extracthkid = async (req, res)=>{
         .textDetection(image)
         .then(results =>{
             console.log(results[0].fullTextAnnotation.text);
-            console.log(results[0].fullTextAnnotation.text.length);
+            console.log(results[0].fullTextAnnotation.length);
+
             res.status(200).send(results[0].fullTextAnnotation.text)
         })
         .catch(results => res.status(400).send("Please take picture again."));
